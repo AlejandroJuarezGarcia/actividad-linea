@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Relaciona los conceptos de Excel</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#f2f6f3;--surface:#fff;--ink:#12261b;--muted:#4b5f54;--green:#1e6e42;--line:#c5d3ca;--ok:#157a38;--bad:#c0281b;--tile:#1e6e42;--tileink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1a14;--surface:#1a2a21;--ink:#e6f1ea;--muted:#9db3a5;--green:#3aa56b;--line:#2f4538;--ok:#4cd37f;--bad:#ff7466;--tile:#2a7a4f}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1a14;--surface:#1a2a21;--ink:#e6f1ea;--muted:#9db3a5;--green:#3aa56b;--line:#2f4538;--ok:#4cd37f;--bad:#ff7466;--tile:#2a7a4f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Nunito Sans",system-ui,"Segoe UI",sans-serif}
+main{max-width:900px;margin:0 auto;padding:22px 16px 36px}
+h1{font-size:1.6rem;line-height:1.2;margin:0 0 6px;font-weight:800}
+.lead{margin:0 0 14px;color:var(--muted);max-width:68ch}
+.stats{display:flex;gap:18px;flex-wrap:wrap;font-weight:600}
+.stats b{color:var(--green)}
+#status{min-height:1.6em;margin:4px 0 10px;font-weight:600;color:var(--muted)}
+#status.bad{color:var(--bad)}#status.good{color:var(--ok)}
+#board{position:relative;display:grid;grid-template-columns:.8fr minmax(48px,.6fr) 1.6fr;gap:14px 0;padding:6px 0}
+#lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
+.item{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;text-align:center;min-height:68px;padding:10px 14px;border-radius:12px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:pan-y;line-height:1.25;border:3px solid transparent}
+.item[data-side="L"]{grid-column:1;background:var(--tile);color:var(--tileink);font-weight:800;font-size:clamp(14px,2.4vw,19px)}
+.item[data-side="R"]{grid-column:3;background:var(--surface);border-color:var(--line);font-weight:600;font-size:clamp(12px,2vw,16px)}
+.item::after{content:"";position:absolute;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--green);border:2px solid var(--surface)}
+.item[data-side="L"]::after{right:-10px}
+.item[data-side="R"]::after{left:-10px}
+.item:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.item.sel,.item.hover{outline:3px solid var(--green);outline-offset:3px}
+.item.matched{cursor:default;border-color:var(--ok)}
+.item.bad{border-color:var(--bad);animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.item.bad{animation:none}}
+.ln{stroke-linecap:round;stroke-width:4}
+.ln.ok{stroke:var(--ok)}
+.ln.tmp{stroke:var(--green);stroke-dasharray:2 8}
+.ln.err{stroke:var(--bad);opacity:.9;transition:opacity .5s}
+#end{display:none;margin-top:18px;padding:18px;border-radius:12px;background:var(--surface);border:2px solid var(--green);text-align:center}
+#end.show{display:block}
+#end strong{display:block;font-size:1.4rem;margin-bottom:4px}
+#end p{margin:0 0 12px;color:var(--muted)}
+button.retry{font:inherit;font-weight:800;border:0;border-radius:8px;padding:11px 28px;background:var(--green);color:#fff;cursor:pointer}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.retry{color:#08140d}}
+:root[data-theme="dark"] button.retry{color:#08140d}
+button.retry:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){#end.show{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.97);opacity:0}}}
+</style>
+</head>
+<body>
+<main>
+<h1>Relaciona los conceptos de Excel</h1>
+<p class="lead">Arrastra desde un concepto hasta su descripción para unirlos con una línea. También puedes tocar un concepto y luego su descripción. Si la unión es correcta, la línea se queda; si no, no se coloca.</p>
+<div class="stats"><span>Aciertos: <b id="found">0</b> de 5</span><span>Intentos: <b id="tries">0</b></span></div>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="board"><svg id="lines" aria-hidden="true"></svg></div>
+<div id="end" role="status" aria-live="polite"><strong>¡Actividad finalizada!</strong><p id="endmsg"></p><button class="retry" id="retry" type="button">Reintentar</button></div>
+</main>
+<script>
+var DATA=[
+ ["Libro","Archivo de Excel que contiene múltiples páginas"],
+ ["Hoja","Página de trabajo individual compuesta por una cuadrícula"],
+ ["Columna","Agrupación vertical de la hoja, se identifican por las letras"],
+ ["Fila","Agrupación horizontal de la hoja, se identifica por números"],
+ ["Celda","Cuadro individual donde se cruza una fila y una columna"]
+];
+var NS="http://www.w3.org/2000/svg";
+var board=document.getElementById("board"),svg=document.getElementById("lines"),statusEl=document.getElementById("status"),endBox=document.getElementById("end");
+var selected=null,drag=null,tries=0,found=0,done=false,pairs=[];
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function say(t,c){statusEl.textContent=t;statusEl.className=c||""}
+function build(){
+  selected=null;drag=null;tries=0;found=0;done=false;pairs=[];
+  document.getElementById("found").textContent=0;document.getElementById("tries").textContent=0;
+  endBox.className="";say("");
+  board.querySelectorAll(".item").forEach(function(n){n.remove()});
+  svg.innerHTML="";
+  var L,R,ok;
+  do{L=shuffle([0,1,2,3,4]);R=shuffle([0,1,2,3,4]);ok=true;for(var i=0;i<5;i++)if(L[i]===R[i])ok=false}while(!ok);
+  for(var r=0;r<5;r++){
+    board.appendChild(mk("L",L[r],DATA[L[r]][0],r+1));
+    board.appendChild(mk("R",R[r],DATA[R[r]][1],r+1));
+  }
+}
+function mk(side,id,text,row){
+  var d=document.createElement("div");d.className="item";d.dataset.side=side;d.dataset.id=id;d.tabIndex=0;d.setAttribute("role","button");
+  d.style.gridRow=row;d.textContent=text;
+  d.addEventListener("pointerdown",function(e){down(e,d)});
+  d.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();if(!done&&!d.classList.contains("matched"))tap(d)}});
+  return d;
+}
+function anchor(it){var r=it.getBoundingClientRect(),w=board.getBoundingClientRect();return{x:(it.dataset.side==="L"?r.right:r.left)-w.left,y:r.top+r.height/2-w.top}}
+function line(cls,a,b){var l=document.createElementNS(NS,"line");l.setAttribute("class","ln "+cls);setLine(l,a,b);svg.appendChild(l);return l}
+function setLine(l,a,b){l.setAttribute("x1",a.x);l.setAttribute("y1",a.y);l.setAttribute("x2",b.x);l.setAttribute("y2",b.y)}
+function redraw(){svg.querySelectorAll(".ok").forEach(function(n){n.remove()});pairs.forEach(function(p){line("ok",anchor(p[0]),anchor(p[1]))})}
+function itemAt(e){var el=document.elementFromPoint(e.clientX,e.clientY);return el&&el.closest?el.closest(".item"):null}
+function down(e,it){
+  if(done||it.classList.contains("matched"))return;
+  drag={item:it,x:e.clientX,y:e.clientY,moved:false,tmp:null,hov:null};
+  document.addEventListener("pointermove",move);
+  document.addEventListener("pointerup",up);
+  document.addEventListener("pointercancel",up);
+}
+function move(e){
+  if(!drag)return;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;
+  drag.moved=true;
+  var w=board.getBoundingClientRect(),a=anchor(drag.item),b={x:e.clientX-w.left,y:e.clientY-w.top};
+  if(!drag.tmp)drag.tmp=line("tmp",a,b);else setLine(drag.tmp,a,b);
+  var t=itemAt(e);if(drag.hov)drag.hov.classList.remove("hover");
+  drag.hov=(t&&t!==drag.item&&t.dataset.side!==drag.item.dataset.side&&!t.classList.contains("matched"))?t:null;
+  if(drag.hov)drag.hov.classList.add("hover");
+}
+function up(e){
+  document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",up);
+  if(!drag)return;
+  var d=drag;drag=null;
+  if(d.tmp)d.tmp.remove();if(d.hov)d.hov.classList.remove("hover");
+  if(e.type==="pointercancel")return;
+  if(d.moved){var t=itemAt(e);if(t&&t!==d.item&&t.dataset.side!==d.item.dataset.side&&!t.classList.contains("matched"))attempt(d.item,t)}
+  else tap(d.item);
+}
+function select(it){if(selected)selected.classList.remove("sel");selected=it;if(it)it.classList.add("sel")}
+function tap(it){
+  if(selected&&selected!==it&&selected.dataset.side!==it.dataset.side){var s=selected;select(null);attempt(s,it)}
+  else if(selected===it)select(null);
+  else select(it);
+}
+function attempt(a,b){
+  tries++;document.getElementById("tries").textContent=tries;
+  var l=a.dataset.side==="L"?a:b,r=a.dataset.side==="L"?b:a;
+  if(l.dataset.id===r.dataset.id){
+    l.classList.add("matched");r.classList.add("matched");pairs.push([l,r]);line("ok",anchor(l),anchor(r));
+    found++;document.getElementById("found").textContent=found;say("¡Correcto!","good");
+    if(found===5)setTimeout(finish,500);
+  }else{
+    var ln=line("err",anchor(l),anchor(r));
+    requestAnimationFrame(function(){requestAnimationFrame(function(){ln.style.opacity=0})});
+    setTimeout(function(){ln.remove()},550);
+    [l,r].forEach(function(x){x.classList.add("bad");setTimeout(function(){x.classList.remove("bad")},600)});
+    say("Incorrecto, inténtalo de nuevo.","bad");
+  }
+}
+function finish(){
+  done=true;
+  document.getElementById("endmsg").textContent="Relacionaste los 5 conceptos con su descripción en "+tries+" intentos.";
+  endBox.className="show";endBox.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+document.getElementById("retry").addEventListener("click",build);
+window.addEventListener("resize",redraw);
+if(window.ResizeObserver)new ResizeObserver(redraw).observe(board);
+build();
+</script>
+</body>
+</html>
